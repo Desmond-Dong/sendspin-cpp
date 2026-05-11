@@ -483,10 +483,10 @@ std::string SendspinClient::build_hello_message() {
 // Message processing
 // ============================================================================
 
-void SendspinClient::process_json_message(SendspinConnection* conn, const std::string& message,
+void SendspinClient::process_json_message(SendspinConnection* conn, const char* data, size_t len,
                                           int64_t timestamp) {
     JsonDocument doc = make_json_document();
-    DeserializationError error = deserializeJson(doc, message.c_str(), message.size());
+    DeserializationError error = deserializeJson(doc, data, len);
     if (error || doc.isNull()) {
         SS_LOGW(TAG, "Failed to parse JSON message");
         return;

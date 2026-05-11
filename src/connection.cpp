@@ -96,13 +96,14 @@ SS_HOT void SendspinConnection::dispatch_completed_message(bool is_text, int64_t
     }
 
     if (is_text) {
-        // Create string from payload for JSON processing
-        const std::string message(this->websocket_payload_.data(),
-                                  this->websocket_payload_.data() + this->websocket_write_offset_);
-
-        // Invoke JSON message callback
+        // Hand the JSON callback a pointer straight into the reassembly buffer instead of copying
+        // it into a std::string. The callback parses synchronously; reset_websocket_payload()
+        // below makes the buffer reusable as soon as it returns, so the callback must not retain
+        // the pointer. Not null-terminated; the length is authoritative.
         if (this->on_json_message_cb) {
-            this->on_json_message_cb(this, message, receive_time);
+            this->on_json_message_cb(this,
+                                     reinterpret_cast<const char*>(this->websocket_payload_.data()),
+                                     this->websocket_write_offset_, receive_time);
         }
     } else {
         // Binary message - connection retains buffer ownership, callback reads in-place
