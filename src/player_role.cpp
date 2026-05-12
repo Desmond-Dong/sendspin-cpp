@@ -307,8 +307,20 @@ void PlayerRole::Impl::handle_stream_end() const {
 }
 
 void PlayerRole::Impl::handle_stream_clear() const {
+    // stream/clear is a seek within the active stream: the server flushes our buffered audio and
+    // immediately resumes sending new audio with the same codec/params (no new stream/start). Tell
+    // the sync task to discard buffered audio, then enqueue a marker so it knows exactly where the
+    // discarded (pre-seek) audio ends and the new audio begins. The flag is set before the marker
+    // so the sync task starts draining (freeing ring-buffer space) before we write the marker.
+    // No listener callback: a seek is not a stream lifecycle event for the consumer.
     this->sync_task->signal_stream_clear();
-    this->event_state->stream_queue.send(PlayerStreamCallbackType::STREAM_CLEAR, 0);
+    if (!this->sync_task->write_audio_chunk(nullptr, 0, 0, CHUNK_TYPE_STREAM_CLEAR_MARKER,
+                                            HEADER_SEND_TIMEOUT_MS)) {
+        // The marker couldn't be enqueued (ring buffer full). The sync task will still drain to
+        // empty and apply the clear, but the pre-seek/post-seek boundary is lost, so new audio
+        // may be discarded along with the old.
+        SS_LOGW(TAG, "Failed to enqueue stream/clear marker; seek boundary may be imprecise");
+    }
 }
 
 void PlayerRole::Impl::handle_server_command(const ServerCommandMessage& cmd) const {
@@ -399,9 +411,7 @@ void PlayerRole::Impl::drain_events() {
         size_t processed = 0;
 
         for (auto& event : this->awaiting_sync_idle_events) {
-            if ((event == PlayerStreamCallbackType::STREAM_END ||
-                 event == PlayerStreamCallbackType::STREAM_CLEAR) &&
-                !sync_idle) {
+            if (event == PlayerStreamCallbackType::STREAM_END && !sync_idle) {
                 break;  // Wait for sync task to go idle before firing this and anything after it
             }
 
@@ -413,11 +423,6 @@ void PlayerRole::Impl::drain_events() {
                     if (this->high_performance_requested_for_playback) {
                         this->client->release_high_performance();
                         this->high_performance_requested_for_playback = false;
-                    }
-                    break;
-                case PlayerStreamCallbackType::STREAM_CLEAR:
-                    if (this->listener) {
-                        this->listener->on_stream_clear();
                     }
                     break;
                 case PlayerStreamCallbackType::STREAM_START: {
@@ -444,8 +449,9 @@ void PlayerRole::Impl::drain_events() {
 }
 
 void PlayerRole::Impl::cleanup() {
-    // Clear all buffered audio immediately
-    this->sync_task->signal_stream_clear();
+    // End the current stream: the sync task drains and returns to idle. (Not signal_stream_clear():
+    // that path is a seek within a live stream and expects a marker to follow.)
+    this->sync_task->signal_stream_end();
 
     // Discard stale events from the dead connection
     this->event_state->stream_queue.reset();
