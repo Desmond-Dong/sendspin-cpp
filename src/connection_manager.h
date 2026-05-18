@@ -147,8 +147,10 @@ private:
     /// @param conn The connection to configure.
     void setup_connection_callbacks(SendspinConnection* conn);
     /// @brief Accepts an incoming server connection as current or pending for handoff.
-    /// @param conn The newly accepted server connection.
-    void on_new_connection(std::unique_ptr<SendspinServerConnection> conn);
+    /// @param conn The newly accepted server connection. The session slot keeps a parallel
+    ///             refcount, so this observer can be reset at any time without freeing the conn
+    ///             out from under in-flight httpd workers.
+    void on_new_connection(std::shared_ptr<SendspinServerConnection> conn);
 
     // ========================================
     // Hello handshake
@@ -178,10 +180,11 @@ private:
     /// @brief Completes a server handoff by promoting or discarding the pending connection.
     /// @param switch_to_new True to promote the pending connection, false to discard it.
     void complete_handoff(bool switch_to_new);
-    /// @brief Sends a goodbye, then defers destruction of the connection until loop() runs.
-    /// @param conn The connection to disconnect and release.
+    /// @brief Sends a goodbye and takes ownership of the caller's shared_ptr so it drops at
+    /// function exit.
+    /// @param conn The connection to disconnect and release. Caller's shared_ptr is left empty.
     /// @param reason The goodbye reason to send before closing.
-    void disconnect_and_release(std::shared_ptr<SendspinConnection> conn,
+    void disconnect_and_release(std::shared_ptr<SendspinConnection>&& conn,
                                 SendspinGoodbyeReason reason);
 
     // Struct fields
@@ -196,7 +199,6 @@ private:
     // Pointer fields
     SendspinClient* client_;
     std::shared_ptr<SendspinConnection> current_connection_;
-    std::shared_ptr<SendspinConnection> dying_connection_;
     std::shared_ptr<SendspinConnection> pending_connection_;
     std::unique_ptr<SendspinWsServer> ws_server_;
 
@@ -204,7 +206,6 @@ private:
     uint32_t last_played_server_hash_{0};
 
     // 8-bit fields
-    bool dying_connection_ready_to_release_{false};
     bool has_last_played_server_{false};
 };
 
