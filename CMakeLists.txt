@@ -184,4 +184,11 @@ else()
         message(STATUS "Skipping sendspin-cpp examples (BUILD_EXAMPLES=OFF)")
     endif()
 
+    # Unit tests (host only, opt-in via -DSENDSPIN_BUILD_TESTS=ON)
+    option(SENDSPIN_BUILD_TESTS "Build host unit tests" OFF)
+    if(SENDSPIN_BUILD_TESTS)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
+
 endif()
