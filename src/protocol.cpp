@@ -189,6 +189,7 @@ static bool process_server_metadata_state_object(const JsonObject metadata_objec
     parse_metadata_string_field(metadata_object["artwork_url"], &metadata_delta->artwork_url);
     parse_metadata_uint16_field(metadata_object["year"], &metadata_delta->year);
     parse_metadata_uint16_field(metadata_object["track"], &metadata_delta->track);
+    parse_metadata_string_field(metadata_object["lyrics"], &metadata_delta->lyrics);
 
     // Parse progress object - present object engages inner; explicit null clears; absent leaves
     // outer nullopt.
@@ -686,6 +687,9 @@ void apply_metadata_state_deltas(ServerMetadataStateObject* current,
     }
     if (delta.track.has_value()) {
         current->track = *delta.track;
+    }
+    if (delta.lyrics.has_value()) {
+        current->lyrics = *delta.lyrics;
     }
     if (delta.progress.has_value()) {
         current->progress = *delta.progress;

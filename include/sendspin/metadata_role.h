@@ -47,6 +47,7 @@ struct ServerMetadataStateObject {
     std::optional<std::string> artwork_url;
     std::optional<uint16_t> year;
     std::optional<uint16_t> track;
+    std::optional<std::string> lyrics;
     std::optional<MetadataProgressObject> progress;
 };
 

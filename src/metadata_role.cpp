@@ -127,6 +127,9 @@ void MetadataRole::Impl::handle_server_state(ServerMetadataStateDelta delta) con
             if (incoming.track.has_value()) {
                 current.track = incoming.track;
             }
+            if (incoming.lyrics.has_value()) {
+                current.lyrics = std::move(incoming.lyrics);
+            }
             if (incoming.progress.has_value()) {
                 current.progress = incoming.progress;
             }

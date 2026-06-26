@@ -531,6 +531,7 @@ struct ServerMetadataStateDelta {
     std::optional<std::optional<std::string>> artwork_url;
     std::optional<std::optional<uint16_t>> year;
     std::optional<std::optional<uint16_t>> track;
+    std::optional<std::optional<std::string>> lyrics;
     std::optional<std::optional<MetadataProgressObject>> progress;
 };
 
